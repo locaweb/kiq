@@ -42,7 +42,7 @@ defmodule Kiq.Job do
   [1]: https://github.com/mperham/sidekiq/wiki/Job-Format
   """
 
-  alias Kiq.{Encoder, Timestamp}
+  alias Kiq.{Encoder, Timestamp, Util}
 
   @type t :: %__MODULE__{
           jid: binary(),
@@ -119,7 +119,7 @@ defmodule Kiq.Job do
     args =
       args
       |> Map.put(:class, to_string(class))
-      |> Map.put_new(:jid, random_jid())
+      |> Map.put_new(:jid, Util.random_id())
       |> Map.put_new(:created_at, Timestamp.unix_now())
       |> coerce_unique_until()
 
@@ -206,14 +206,6 @@ defmodule Kiq.Job do
       |> Map.new(fn {key, val} -> {String.to_existing_atom(key), val} end)
       |> new()
     end
-  end
-
-  @doc false
-  @spec random_jid(size :: pos_integer()) :: binary()
-  def random_jid(size \\ 12) do
-    size
-    |> :crypto.strong_rand_bytes()
-    |> Base.encode16(case: :lower)
   end
 
   # Uniqueness & Expiration

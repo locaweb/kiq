@@ -1,17 +1,9 @@
 defmodule Kiq.JobTest do
   use Kiq.Case, async: true
-  use ExUnitProperties
 
   alias Kiq.{Job, Timestamp}
 
   doctest Job
-
-  describe "random_jid/1" do
-    test "a random fixed length job id is generated" do
-      Job.random_jid() =~ ~r/^[0-9a-z]{24}$/
-      Job.random_jid(8) =~ ~r/^[0-9a-z]{16}$/
-    end
-  end
 
   describe "encode/1" do
     test "transient and nil values are omitted" do

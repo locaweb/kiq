@@ -5,6 +5,15 @@ defmodule Kiq.JobTest do
 
   doctest Job
 
+  describe "decode/1" do
+    test "all object keys are atomized" do
+      job = Job.decode(~s({"class":"MyWorker","args":{"a":1,"b":2}}))
+
+      assert job.class == "MyWorker"
+      assert job.args == %{a: 1, b: 2}
+    end
+  end
+
   describe "encode/1" do
     test "transient and nil values are omitted" do
       decoded =

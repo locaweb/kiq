@@ -170,11 +170,7 @@ defmodule Kiq.Job do
     |> Enum.into(%{})
   end
 
-  @doc """
-  Encode a job as JSON.
-
-  During the encoding process any keys with `nil` values are removed.
-  """
+  @doc false
   @spec encode(job :: t()) :: binary() | {:error, Exception.t()}
   def encode(%__MODULE__{} = job) do
     map = to_map(job)
@@ -184,21 +180,7 @@ defmodule Kiq.Job do
     end
   end
 
-  @doc """
-  Decode an encoded job from JSON into a Job struct.
-
-  All job keys are atomized except for those within arguments.
-
-  # Example
-
-      iex> job = Kiq.Job.decode(~s({"class":"MyWorker","args":[1,2]}))
-      ...> Map.take(job, [:class, :args])
-      %{class: "MyWorker", args: [1, 2]}
-
-      iex> job = Kiq.Job.decode(~s({"class":"MyWorker","args":{"a":1}}))
-      ...> Map.get(job, :args)
-      %{"a" => 1}
-  """
+  @doc false
   @spec decode(input :: binary()) :: t() | {:error, Exception.t()}
   def decode(input) when is_binary(input) do
     with {:ok, decoded} <- Jason.decode(input) do

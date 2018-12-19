@@ -5,8 +5,8 @@ defmodule Kiq.Client do
 
   import Kiq.Logger, only: [log: 1]
 
-  alias Kiq.{Config, Pool, Job}
-  alias Kiq.Client.{Cleanup, Queueing}
+  alias Kiq.{Batch, Config, Pool, Job}
+  alias Kiq.Client.{Batching, Cleanup, Queueing}
 
   @type client :: GenServer.server()
   @type options :: [config: Config.t(), name: GenServer.name()]
@@ -30,8 +30,17 @@ defmodule Kiq.Client do
     GenServer.start_link(__MODULE__, opts, name: name)
   end
 
-  @spec store(client(), Job.t()) :: {:ok, Job.t()}
+  @spec store(client(), Batch.t() | Job.t()) :: {:ok, Batch.t() | Job.t()}
+  def store(client, %Batch{} = batch) do
+    GenServer.call(client, {:store, batch})
+  end
+
   def store(client, %Job{queue: queue} = job) when is_binary(queue) do
+    job =
+      job
+      |> Job.apply_unique()
+      |> Job.apply_expiry()
+
     GenServer.call(client, {:store, job})
   end
 
@@ -102,15 +111,10 @@ defmodule Kiq.Client do
     {:reply, :ok, state}
   end
 
-  def handle_call({:store, job}, {pid, _tag}, %State{table: table} = state) do
-    job =
-      job
-      |> Job.apply_unique()
-      |> Job.apply_expiry()
+  def handle_call({:store, struct}, {pid, _tag}, %State{table: table} = state) do
+    :ets.insert(table, {pid, struct})
 
-    :ets.insert(table, {pid, job})
-
-    {:reply, {:ok, job}, state}
+    {:reply, {:ok, struct}, state}
   end
 
   def handle_call({:fetch, scoping}, {pid, _tag}, %State{table: table} = state) do
@@ -135,9 +139,11 @@ defmodule Kiq.Client do
   defp perform_flush(%State{pool: pool, table: table, test_mode: :disabled} = state) do
     try do
       conn = Pool.checkout(pool)
-      jobs = :ets.foldl(fn {_key, val}, acc -> [val | acc] end, [], table)
+
+      {jobs, batches} = :ets.foldl(&entry_to_lists/2, {[], []}, table)
 
       :ok = Queueing.enqueue(conn, jobs)
+      :ok = Batching.enqueue(conn, batches)
       true = :ets.delete_all_objects(table)
 
       transition_to_success(state)
@@ -153,6 +159,9 @@ defmodule Kiq.Client do
   defp perform_flush(state) do
     state
   end
+
+  defp entry_to_lists({_key, %Job{} = job}, {jobs, batches}), do: {[job | jobs], batches}
+  defp entry_to_lists({_key, %Batch{} = batch}, {jobs, batches}), do: {jobs, [batch | batches]}
 
   defp transition_to_success(%State{flush_interval: interval, start_interval: interval} = state) do
     state

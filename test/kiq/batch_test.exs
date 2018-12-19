@@ -44,29 +44,4 @@ defmodule Kiq.BatchTest do
       assert successes == [%{handler => %{c: 3, d: 4}}, %{handler => %{c: 1, d: 2}}]
     end
   end
-
-  describe "encode/1 decode/1" do
-    test "nil and temporary values are omitted" do
-      encoded = Batch.encode(Batch.new())
-
-      assert encoded =~ "bid"
-      assert encoded =~ "created_at"
-      assert encoded =~ "callbacks"
-      refute encoded =~ "description"
-      refute encoded =~ "jobs"
-      refute encoded =~ "parent"
-    end
-
-    test "encoding and decoding are complementary" do
-      decoded =
-        Batch.new(description: "Mega Batch")
-        |> Batch.add_job(job())
-        |> Batch.add_callback(:success, __MODULE__)
-        |> Batch.encode()
-        |> Batch.decode()
-
-      assert [] = decoded.jobs
-      assert %{success: [%{}]} = decoded.callbacks
-    end
-  end
 end

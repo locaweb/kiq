@@ -6,6 +6,7 @@ defmodule Kiq.Job do
   fields:
 
   * `jid` - A 12 byte random number as a 24 character hex encoded string
+  * `bid` - A unique identifier indicating the batch that this job belongs to
   * `pid` — Process id of the worker running the job, defaults to the calling process
   * `class` - The worker class which is responsible for executing the job
   * `args` - The arguments passed which should be passed to the worker
@@ -46,6 +47,7 @@ defmodule Kiq.Job do
 
   @type t :: %__MODULE__{
           jid: binary(),
+          bid: binary(),
           pid: pid(),
           class: binary(),
           args: list(any),
@@ -70,6 +72,7 @@ defmodule Kiq.Job do
 
   @enforce_keys ~w(jid class)a
   defstruct jid: nil,
+            bid: nil,
             pid: nil,
             class: nil,
             args: [],

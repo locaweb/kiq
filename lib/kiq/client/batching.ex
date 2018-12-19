@@ -1,14 +1,21 @@
 defmodule Kiq.Client.Batching do
   @moduledoc false
 
-  import Redix, only: [noreply_pipeline: 2]
-  import Kiq.Naming, only: [batch_name: 1, batch_jobs_name: 1, queue_name: 1]
+  import Redix
+  import Kiq.Naming
 
-  alias Kiq.{Batch, Job}
+  alias Kiq.{Batch, Job, Timestamp}
+  alias Kiq.Batch.Status
 
   @type conn :: GenServer.server()
 
-  @spec enqueue(conn(), Batch.t()) :: {:ok, Batch.t()}
+  @spec enqueue(conn(), list(Batch.t()) | Batch.t()) :: :ok
+  def enqueue(conn, batches) when is_list(batches) do
+    for batch <- batches, do: enqueue(conn, batch)
+
+    :ok
+  end
+
   def enqueue(conn, %Batch{jobs: [_ | _]} = batch) do
     commands =
       []
@@ -16,15 +23,40 @@ defmodule Kiq.Client.Batching do
       |> with_parent_commands(batch)
       |> with_job_commands(batch)
 
-    with :ok <- noreply_pipeline(conn, commands) do
-      {:ok, batch}
-    end
+    noreply_pipeline!(conn, commands)
   end
+
+  @spec add_success(conn(), bid :: binary(), jid :: binary()) :: Status.t()
+  def add_success(conn, bid, jid) when is_binary(bid) and is_binary(jid) do
+    commands = [
+      ["PUBLISH", batch_pubsub_name(bid), "+"],
+      ["HINCRBY", batch_name(bid), "pending", -1],
+      ["HDEL", batch_fail_name(bid), jid],
+      ["HLEN", batch_fail_name(bid)],
+      ["SREM", batch_jobs_name(bid), jid],
+      ["HINCRBY", batch_name(bid), "total", 0],
+      ["HGET", batch_name(bid), "cbq"],
+      ["HGET", batch_name(bid), "callbacks"]
+    ]
+
+    [_, pending, _, failures, _, total, queue, callbacks] = pipeline!(conn, commands)
+
+    %Status{
+      bid: bid,
+      callbacks: Jason.decode!(callbacks),
+      pending: pending,
+      failures: failures,
+      queue: queue,
+      total: total
+    }
+  end
+
+  # Helpers
 
   defp with_batch_commands(commands, %Batch{bid: bid} = batch) do
     key = batch_name(bid)
     jobs_count = length(batch.jobs)
-    job_ids = Enum.map(batch.jobs, & &1.id)
+    job_ids = Enum.map(batch.jobs, & &1.jid)
     jobs_key = batch_jobs_name(bid)
     encoded_callbacks = Jason.encode!(batch.callbacks)
 
@@ -59,14 +91,13 @@ defmodule Kiq.Client.Batching do
       |> Enum.map(& &1.queue)
       |> Enum.uniq()
 
-    # TODO: Set the bid on the job
+    job_commands =
+      Enum.map(jobs, fn %Job{queue: queue} = job ->
+        job = %{job | bid: bid, enqueued_at: Timestamp.unix_now()}
 
-    job_commands = Enum.map(jobs, fn %Job{queue: queue} = job ->
-      job = %{job | enqueued_at: Timestamp.unix_now()}
+        ["LPUSH", queue_name(queue), Job.encode(job)]
+      end)
 
-      ["LPUSH", queue_name(queue), Job.encode(job)]
-    end)
-
-    commands ++ ["SADD" | ["queues" | queues]] ++ job_commands
+    commands ++ [["SADD" | ["queues" | queues]]] ++ job_commands
   end
 end

@@ -318,10 +318,10 @@ defmodule Kiq do
   [tele]: https://hexdocs.pm/telemetry
   """
 
-  alias Kiq.{Client, Job, Timestamp}
+  alias Kiq.{Batch, Client, Job, Timestamp}
 
-  @type job_args :: map() | Keyword.t() | Job.t()
-  @type job_opts :: [in: pos_integer(), at: DateTime.t()]
+  @type enqueue_args :: map() | Keyword.t() | Batch.t() | Job.t()
+  @type enqueue_opts :: [in: pos_integer(), at: DateTime.t()]
 
   @doc """
   Starts the client and possibly the supervision tree, returning `{:ok, pid}` when startup is
@@ -388,7 +388,8 @@ defmodule Kiq do
       # Enqueue a job from scratch, without using a worker module
       MyKiq.enqueue(class: "ExternalWorker", args: [1])
   """
-  @callback enqueue(job_args(), job_opts()) :: {:ok, Job.t()} | {:error, Exception.t()}
+  @callback enqueue(enqueue_args(), enqueue_opts()) ::
+              {:ok, Batch.t() | Job.t()} | {:error, Exception.t()}
 
   @doc false
   defmacro __using__(opts) do
@@ -441,8 +442,9 @@ defmodule Kiq do
       end
 
       @impl Kiq
-      def enqueue(job_args, job_opts \\ []) when is_map(job_args) or is_list(job_args) do
-        Kiq.enqueue(@client_name, job_args, job_opts)
+      def enqueue(enqueue_args, enqueue_opts \\ [])
+          when is_map(enqueue_args) or is_list(enqueue_args) do
+        Kiq.enqueue(@client_name, enqueue_args, enqueue_opts)
       end
 
       defoverridable Kiq
@@ -450,21 +452,26 @@ defmodule Kiq do
   end
 
   @doc false
-  def enqueue(client, job_args, job_opts) do
+  def enqueue(client, %Job{} = job, opts) do
+    Client.store(client, with_opts(job, opts))
+  end
+
+  def enqueue(client, %Batch{} = batch, []) do
+    Client.store(client, batch)
+  end
+
+  def enqueue(client, args, opts) do
     job =
-      job_args
-      |> to_job()
-      |> with_opts(job_opts)
+      args
+      |> Job.new()
+      |> with_opts(opts)
 
     Client.store(client, job)
   end
 
-  defp to_job(%Job{} = job), do: job
-  defp to_job(args), do: Job.new(args)
-
   defp with_opts(job, []), do: job
-  defp with_opts(job, at: timestamp), do: %Job{job | at: timestamp}
-  defp with_opts(job, in: seconds), do: %Job{job | at: Timestamp.unix_in(seconds)}
+  defp with_opts(job, at: timestamp), do: %{job | at: timestamp}
+  defp with_opts(job, in: seconds), do: %{job | at: Timestamp.unix_in(seconds)}
 
   @doc false
   def configure(registry, opts) do

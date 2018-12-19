@@ -105,27 +105,4 @@ defmodule Kiq.Batch do
 
     %{batch | callbacks: Map.update(callbacks, event, [mapping], &[mapping | &1])}
   end
-
-  @doc false
-  @spec encode(batch :: t()) :: binary() | {:error, Exception.t()}
-  def encode(%__MODULE__{} = batch) do
-    map =
-      batch
-      |> Map.from_struct()
-      |> Map.drop([:jobs])
-      |> Enum.reject(fn {_key, val} -> is_nil(val) end)
-      |> Enum.into(%{})
-
-    with {:ok, encoded} <- Jason.encode(map) do
-      encoded
-    end
-  end
-
-  @doc false
-  @spec decode(input :: binary()) :: t() | {:error, Exception.t()}
-  def decode(input) when is_binary(input) do
-    with {:ok, decoded} <- Jason.decode(input, keys: :atoms) do
-      new(decoded)
-    end
-  end
 end

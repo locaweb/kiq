@@ -37,6 +37,15 @@ defmodule Kiq.Case do
     |> Job.encode()
   end
 
+  def enqueue_job(value, opts \\ []) do
+    pid_bin = Kiq.Integration.Worker.pid_to_bin()
+
+    [pid_bin, value]
+    |> Kiq.Integration.Worker.new()
+    |> Map.merge(Map.new(opts))
+    |> Kiq.Integration.enqueue()
+  end
+
   def redis_url do
     System.get_env("REDIS_URL") || "redis://localhost:6379/3"
   end

@@ -1,4 +1,9 @@
-describe "Batches" do
+defmodule Kiq.Integration.BatchingTest do
+  use Kiq.Case
+
+  alias Kiq.Integration
+  alias Kiq.Integration.Worker
+
   test "a collection of jobs are enqueued and monitored as a group" do
     defmodule BatchCallbackHandler do
       def handle_success(%{total: total, pending: pending, failures: failures}, opts) do

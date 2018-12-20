@@ -23,4 +23,8 @@ defmodule Kiq.Naming do
 
   @spec batch_fail_name(binary()) :: binary()
   def batch_fail_name(bid), do: "batch-#{bid}-failinfo"
+
+  @spec batch_lock_name(binary(), :complete | :success) :: binary()
+  def batch_lock_name(bid, :complete), do: "b-#{bid}-notify"
+  def batch_lock_name(bid, :success), do: "b-#{bid}-cbsucc"
 end

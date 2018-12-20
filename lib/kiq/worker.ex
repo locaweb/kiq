@@ -86,7 +86,7 @@ defmodule Kiq.Worker do
   end
 
   @doc false
-  @spec new(module(), map() | Keyword.t(), opts()) :: Job.t()
+  @spec new(module(), args(), opts()) :: Job.t()
   def new(module, args, opts) do
     opts
     |> Keyword.put(:args, args)

@@ -11,7 +11,6 @@ defmodule Kiq.BatchTest do
 
       assert batch.bid =~ ~r/[a-z0-9]+/
       assert batch.created_at
-      assert batch.expires_in == 2_592_000
     end
   end
 

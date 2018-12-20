@@ -3,7 +3,7 @@ defmodule Kiq.Reporter.Retryer do
 
   use Kiq.Reporter
 
-  alias Kiq.{Job, Pool, Reporter, Timestamp}
+  alias Kiq.{Job, Pool, Reporter, Timestamp, Util}
   alias Kiq.Client.{Cleanup, Queueing}
 
   @default_max 25
@@ -42,7 +42,7 @@ defmodule Kiq.Reporter.Retryer do
           |> Map.replace!(:failed_at, Timestamp.unix_now())
           |> Map.replace!(:retried_at, Timestamp.unix_now())
           |> Map.replace!(:at, retry_at(count))
-          |> Map.replace!(:error_class, error_name(error))
+          |> Map.replace!(:error_class, Util.error_name(error))
           |> Map.replace!(:error_message, Exception.message(error))
 
         Queueing.retry(conn, job)
@@ -78,14 +78,6 @@ defmodule Kiq.Reporter.Retryer do
 
   defp backoff_offset(count, base_value \\ 15, rand_range \\ 30) do
     trunc(:math.pow(count, 4) + base_value + (:rand.uniform(rand_range) + (count + 1)))
-  end
-
-  defp error_name(error) do
-    %{__struct__: module} = Exception.normalize(:error, error)
-
-    module
-    |> Module.split()
-    |> Enum.join(".")
   end
 
   defp retry_at(count) do

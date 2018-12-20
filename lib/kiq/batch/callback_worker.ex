@@ -1,4 +1,6 @@
 defmodule Kiq.Batch.CallbackWorker do
+  @moduledoc false
+
   use Kiq.Worker, queue: "default"
 
   def perform([status, module_string, event_string, args]) do

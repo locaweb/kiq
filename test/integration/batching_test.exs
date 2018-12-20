@@ -4,19 +4,25 @@ defmodule Kiq.Integration.BatchingTest do
   alias Kiq.{Batch, Integration}
   alias Kiq.Integration.Worker
 
-  test "a collection of jobs are enqueued and monitored as a group" do
-    defmodule BatchCallbackHandler do
-      def handle_complete(status, %{pid: pid}) do
-        send(Worker.bin_to_pid(pid), {:batch_complete, status})
-      end
+  defmodule BatchCallbackHandler do
+    alias Kiq.Integration.Worker
 
-      def handle_success(status, %{pid: pid}) do
-        send(Worker.bin_to_pid(pid), {:batch_success, status})
-      end
+    def handle_complete(status, %{pid: pid}) do
+      send(Worker.bin_to_pid(pid), {:batch_complete, status})
     end
 
+    def handle_success(status, %{pid: pid}) do
+      send(Worker.bin_to_pid(pid), {:batch_success, status})
+    end
+  end
+
+  setup do
     {:ok, _pid} = start_supervised(Integration)
 
+    :ok = Integration.clear()
+  end
+
+  test "batch jobs are enqueued and monitored as a group" do
     pid_bin = Worker.pid_to_bin()
 
     Batch.new(description: "Special Jobs", queue: "integration")
@@ -27,11 +33,25 @@ defmodule Kiq.Integration.BatchingTest do
     |> Batch.add_callback(:complete, BatchCallbackHandler, pid: pid_bin)
     |> Integration.enqueue()
 
-    assert_receive {:batch_success, %{total: 3}}
-    assert_receive {:batch_complete, %{total: 3}}
+    assert_receive {:batch_success, %{total: 3, failures: 0, pending: 0}}
+    assert_receive {:batch_complete, %{total: 3, failures: 0, pending: 0}}
 
     assert_received {:processed, 1}
     assert_received {:processed, 2}
     assert_received {:processed, 3}
+  end
+
+  test "batch job failures are recorded and trigger completion callbacks" do
+    pid_bin = Worker.pid_to_bin()
+
+    Batch.new(queue: "integration")
+    |> Batch.add_job(Worker.new([pid_bin, "FAIL"]))
+    |> Batch.add_job(Worker.new([pid_bin, "FAIL"]))
+    |> Batch.add_callback(:complete, BatchCallbackHandler, pid: pid_bin)
+    |> Integration.enqueue()
+
+    assert_receive {:batch_complete, %{total: 2, failures: 2, pending: 2}}
+
+    assert_received :failed
   end
 end

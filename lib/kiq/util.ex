@@ -7,4 +7,13 @@ defmodule Kiq.Util do
     |> :crypto.strong_rand_bytes()
     |> Base.encode16(case: :lower)
   end
+
+  @spec error_name(any()) :: binary()
+  def error_name(error) do
+    %{__struct__: module} = Exception.normalize(:error, error)
+
+    module
+    |> Module.split()
+    |> Enum.join(".")
+  end
 end

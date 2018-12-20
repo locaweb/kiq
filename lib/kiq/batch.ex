@@ -8,7 +8,6 @@ defmodule Kiq.Batch do
           callbacks: %{complete: list(map()), success: list(map())},
           created_at: Timestamp.t(),
           description: binary(),
-          expires_in: pos_integer(),
           jobs: list(Job.t()),
           parent_bid: binary(),
           queue: binary()
@@ -22,14 +21,11 @@ defmodule Kiq.Batch do
     :bid,
     :created_at,
     :description,
-    :expires_in,
     :parent_bid,
     :queue,
     callbacks: %{complete: [], success: []},
     jobs: []
   ]
-
-  @one_month 60 * 60 * 24 * 30
 
   @doc """
   Create a new batch struct to gather and coordinate jobs.
@@ -44,7 +40,6 @@ defmodule Kiq.Batch do
       |> Enum.into(%{})
       |> Map.put_new(:bid, Util.random_id())
       |> Map.put_new(:created_at, Timestamp.unix_now())
-      |> Map.put_new(:expires_in, @one_month)
 
     struct!(__MODULE__, args)
   end

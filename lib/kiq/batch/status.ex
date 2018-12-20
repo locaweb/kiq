@@ -7,10 +7,9 @@ defmodule Kiq.Batch.Status do
           failures: non_neg_integer(),
           pending: non_neg_integer(),
           queue: binary(),
-          total: non_neg_integer(),
+          total: non_neg_integer()
         }
 
-  @enforce_keys [:bid, :callbacks, :failures, :pending]
   defstruct [:bid, :queue, :callbacks, failures: 0, pending: 0, total: 0]
 
   @spec complete?(status :: t()) :: boolean()

@@ -20,4 +20,3 @@ defmodule Kiq.Integration.ExpiringTest do
     assert logged =~ ~s("event":"job_success")
   end
 end
-

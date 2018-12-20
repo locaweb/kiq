@@ -24,21 +24,42 @@ defmodule Kiq.Reporter.Batcher do
 
   @impl Reporter
   def handle_success(%Job{bid: bid, jid: jid}, _meta, state) when is_binary(bid) do
-    status =
-      state.pool
-      |> Pool.checkout()
-      |> Batching.add_success(bid, jid)
+    conn = Pool.checkout(state.pool)
+    status = Batching.add_success(conn, bid, jid)
 
-    # TODO: Use a distributed lock to prevent duplicates
-    if Status.complete?(status), do: enqueue_callbacks(state.client, status, "complete")
-    if Status.success?(status), do: enqueue_callbacks(state.client, status, "success")
+    maybe_enqueue_complete(status, conn, state.client)
+    maybe_enqueue_success(status, conn, state.client)
 
     state
   end
 
   def handle_success(_job, _meta, state), do: state
 
+  @impl Reporter
+  def handle_failure(%Job{bid: bid, jid: jid}, error, _stack, state) when is_binary(bid) do
+    conn = Pool.checkout(state.pool)
+    status = Batching.add_failure(conn, bid, jid, error)
+
+    maybe_enqueue_complete(status, conn, state.client)
+
+    state
+  end
+
+  def handle_failure(_job, _error, _stack, state), do: state
+
   # Helpers
+
+  defp maybe_enqueue_complete(status, conn, client) do
+    if Status.complete?(status) and Batching.locked?(conn, status.bid, :complete) do
+      enqueue_callbacks(client, status, "complete")
+    end
+  end
+
+  defp maybe_enqueue_success(status, conn, client) do
+    if Status.success?(status) and Batching.locked?(conn, status.bid, :success) do
+      enqueue_callbacks(client, status, "success")
+    end
+  end
 
   defp enqueue_callbacks(client, %Status{callbacks: callbacks, queue: queue} = status, event) do
     callbacks
@@ -49,9 +70,12 @@ defmodule Kiq.Reporter.Batcher do
       job =
         [Map.from_struct(status), module, event, args]
         |> CallbackWorker.new()
-        |> Map.put(:queue, queue)
+        |> maybe_put_queue(queue)
 
       Client.store(client, job)
     end)
   end
+
+  defp maybe_put_queue(job, ""), do: job
+  defp maybe_put_queue(job, queue), do: %{job | queue: queue}
 end

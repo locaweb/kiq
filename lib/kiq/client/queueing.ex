@@ -24,6 +24,17 @@ defmodule Kiq.Client.Queueing do
     noreply_pipeline!(conn, commands)
   end
 
+  @spec enqueue_command(Job.t()) :: list(binary())
+  def enqueue_command(%Job{queue: queue} = job) do
+    {job, enqueue_at} = maybe_enqueue_at(job)
+    {unique_key, unlocks_in} = maybe_unlocks_in(job)
+
+    eval_keys = ["EVALSHA", @enqueue_sha, "1", unique_key]
+    eval_args = [Job.encode(job), queue, enqueue_at, unlocks_in]
+
+    eval_keys ++ eval_args
+  end
+
   @spec dequeue(conn(), binary(), binary(), pos_integer()) :: list(iodata())
   def dequeue(conn, queue, identity, count) when is_binary(queue) and is_integer(count) do
     queue_name = queue_name(queue)
@@ -44,16 +55,6 @@ defmodule Kiq.Client.Queueing do
   end
 
   # Helpers
-
-  defp enqueue_command(%Job{queue: queue} = job) do
-    {job, enqueue_at} = maybe_enqueue_at(job)
-    {unique_key, unlocks_in} = maybe_unlocks_in(job)
-
-    eval_keys = ["EVALSHA", @enqueue_sha, "1", unique_key]
-    eval_args = [Job.encode(job), queue, enqueue_at, unlocks_in]
-
-    eval_keys ++ eval_args
-  end
 
   defp maybe_enqueue_at(%Job{at: at} = job) do
     if is_float(at) do

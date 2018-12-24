@@ -4,9 +4,9 @@ defmodule Kiq.Client.Batching do
   import Redix
   import Kiq.Naming
 
-  alias Kiq.{Batch, Job, Timestamp, Util}
+  alias Kiq.{Batch, Util}
   alias Kiq.Batch.Status
-  alias Kiq.Client.Locking
+  alias Kiq.Client.{Locking, Queueing}
 
   @type conn :: GenServer.server()
 
@@ -18,6 +18,8 @@ defmodule Kiq.Client.Batching do
 
     :ok
   end
+
+  def enqueue(_conn, %Batch{jobs: []}), do: :ok
 
   def enqueue(conn, %Batch{jobs: [_ | _]} = batch) do
     commands =
@@ -118,19 +120,12 @@ defmodule Kiq.Client.Batching do
     commands ++ parent_commands
   end
 
+  # The `enqueue_command/1` function composes commands using the enqueue script
+  # in lua. The script ensures that enqueueing a job in or out of a batch
+  # behaves identically, i.e. unique locks are respected and jobs are scheduled.
   defp with_job_commands(commands, %Batch{bid: bid, jobs: jobs}) do
-    queues =
-      jobs
-      |> Enum.map(& &1.queue)
-      |> Enum.uniq()
+    job_commands = for job <- jobs, do: Queueing.enqueue_command(%{job | bid: bid})
 
-    job_commands =
-      Enum.map(jobs, fn %Job{queue: queue} = job ->
-        job = %{job | bid: bid, enqueued_at: Timestamp.unix_now()}
-
-        ["LPUSH", queue_name(queue), Job.encode(job)]
-      end)
-
-    commands ++ [["SADD" | ["queues" | queues]]] ++ job_commands
+    commands ++ job_commands
   end
 end

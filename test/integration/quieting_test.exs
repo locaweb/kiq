@@ -11,7 +11,7 @@ defmodule Kiq.Integration.QuietingTest do
 
       enqueue_job("OK")
 
-      refute_receive {:processed, "OK"}
+      refute_receive {:processed, "OK"}, 100
 
       Integration.configure(quiet: false)
 

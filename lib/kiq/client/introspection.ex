@@ -2,13 +2,15 @@ defmodule Kiq.Client.Introspection do
   @moduledoc false
 
   import Redix, only: [command: 2, pipeline: 2]
-  import Kiq.Naming, only: [queue_name: 1, backup_name: 2, unlock_name: 1]
+  import Kiq.Naming, only: [backup_name: 2, queue_name: 1, unlock_name: 1]
 
   alias Kiq.Job
 
   @typep conn :: GenServer.server()
   @typep queue :: binary()
   @typep identity :: binary()
+
+  # Queues & Jobs
 
   @spec jobs(conn(), queue()) :: list(Job.t())
   def jobs(conn, queue) when is_binary(queue) do
@@ -50,10 +52,14 @@ defmodule Kiq.Client.Introspection do
     {:ok, 1} == command(conn, ["EXISTS", unlock_name(job.unique_token)])
   end
 
+  # Nodes
+
   @spec alive?(conn(), identity()) :: boolean()
   def alive?(conn, identity) when is_binary(identity) do
     {:ok, 1} == command(conn, ["SISMEMBER", "processes", identity])
   end
+
+  # Stats
 
   @spec job_stats(conn()) :: %{processed: non_neg_integer(), failed: non_neg_integer()}
   def job_stats(conn) do
@@ -78,6 +84,8 @@ defmodule Kiq.Client.Introspection do
   def workers(conn, identity) when is_binary(identity) do
     hash_to_map(conn, "#{identity}:workers")
   end
+
+  # Helpers
 
   defp hash_to_map(conn, hash_key) do
     {:ok, values} = command(conn, ["HGETALL", hash_key])

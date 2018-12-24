@@ -32,7 +32,6 @@ defmodule Kiq.Client.Batching do
   @spec add_success(conn(), binary(), binary()) :: Status.t()
   def add_success(conn, bid, jid) when is_binary(bid) and is_binary(jid) do
     commands = [
-      ["PUBLISH", batch_pubsub_name(bid), "+"],
       ["HINCRBY", batch_name(bid), "pending", "-1"],
       ["HDEL", batch_fail_name(bid), jid],
       ["HLEN", batch_fail_name(bid)],
@@ -42,7 +41,7 @@ defmodule Kiq.Client.Batching do
       ["HGET", batch_name(bid), "callbacks"]
     ]
 
-    [_, pending, _, failures, _, total, queue, callbacks] = pipeline!(conn, commands)
+    [pending, _, failures, _, total, queue, callbacks] = pipeline!(conn, commands)
 
     %Status{
       bid: bid,
@@ -59,7 +58,6 @@ defmodule Kiq.Client.Batching do
     error_info = Jason.encode!([Util.error_name(error), Exception.message(error)])
 
     commands = [
-      ["PUBLISH", batch_pubsub_name(bid), "-"],
       ["HSET", batch_fail_name(bid), jid, error_info],
       ["EXPIRE", batch_fail_name(bid), to_string(@one_month)],
       ["HINCRBY", batch_name(bid), "pending", "0"],
@@ -69,7 +67,7 @@ defmodule Kiq.Client.Batching do
       ["HGET", batch_name(bid), "callbacks"]
     ]
 
-    [_, _, _, pending, failures, total, queue, callbacks] = pipeline!(conn, commands)
+    [_, _, pending, failures, total, queue, callbacks] = pipeline!(conn, commands)
 
     %Status{
       bid: bid,

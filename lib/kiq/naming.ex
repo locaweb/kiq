@@ -18,9 +18,6 @@ defmodule Kiq.Naming do
   @spec batch_jobs_name(binary()) :: binary()
   def batch_jobs_name(bid), do: "b-#{bid}-jobs"
 
-  @spec batch_pubsub_name(binary()) :: binary()
-  def batch_pubsub_name(bid), do: "batch-#{bid}"
-
   @spec batch_fail_name(binary()) :: binary()
   def batch_fail_name(bid), do: "batch-#{bid}-failinfo"
 

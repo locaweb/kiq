@@ -29,7 +29,7 @@ enqueue_and_wait = fn total ->
 end
 
 Benchee.run(
-  %{"Enqueue & Perform" => enqueue_and_wait},
-  inputs: %{"One Hundred Jobs" => 100},
+  %{"Enqueue & Perform Jobs" => enqueue_and_wait},
+  inputs: %{"100" => 100},
   time: 10
 )

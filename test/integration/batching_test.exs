@@ -5,12 +5,16 @@ defmodule Kiq.Integration.BatchingTest do
   alias Kiq.Integration.Worker
 
   defmodule BatchCallbackHandler do
+    @behaviour Kiq.Batch.Callback
+
     alias Kiq.Integration.Worker
 
+    @impl true
     def handle_complete(status, %{pid: pid}) do
       send(Worker.bin_to_pid(pid), {:batch_complete, status})
     end
 
+    @impl true
     def handle_success(status, %{pid: pid}) do
       send(Worker.bin_to_pid(pid), {:batch_success, status})
     end
@@ -56,11 +60,12 @@ defmodule Kiq.Integration.BatchingTest do
 
     Batch.new(queue: "integration")
     |> Batch.add_job(Worker.new([pid_bin, "FAIL"]))
+    |> Batch.add_job(Worker.new([pid_bin, "OK"]))
     |> Batch.add_job(Worker.new([pid_bin, "FAIL"]))
     |> Batch.add_callback(:complete, BatchCallbackHandler, pid: pid_bin)
     |> Integration.enqueue()
 
-    assert_receive {:batch_complete, %{total: 2, failures: 2, pending: 2}}
+    assert_receive {:batch_complete, %{total: 3, failures: 2, pending: 2}}
 
     assert_received :failed
   end

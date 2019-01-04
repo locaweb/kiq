@@ -10,12 +10,12 @@ defmodule Kiq.Integration.BatchingTest do
     alias Kiq.Integration.Worker
 
     @impl true
-    def handle_complete(status, %{pid: pid}) do
+    def handle_complete(status, %{"pid" => pid}) do
       send(Worker.bin_to_pid(pid), {:batch_complete, status})
     end
 
     @impl true
-    def handle_success(status, %{pid: pid}) do
+    def handle_success(status, %{"pid" => pid}) do
       send(Worker.bin_to_pid(pid), {:batch_success, status})
     end
   end

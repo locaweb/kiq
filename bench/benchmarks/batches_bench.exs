@@ -9,7 +9,7 @@ end
 defmodule Bench.BatchCallbacks do
   import Bench.Kiq, only: [bin_to_pid: 1]
 
-  def handle_success(_status, %{pid: pid}) do
+  def handle_success(_status, %{"pid" => pid}) do
     send(bin_to_pid(pid), :batch_success)
   end
 end

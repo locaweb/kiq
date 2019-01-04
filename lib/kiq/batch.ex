@@ -37,7 +37,7 @@ defmodule Kiq.Batch do
         @behaviour Kiq.Batch.Callback
 
         @impl true
-        def handle_success(status, %{user_id: user_id}) do
+        def handle_success(status, %{"user_id" => user_id}) do
           Logger.info("Onboarding Finished for User #{user_id}")
         end
       end

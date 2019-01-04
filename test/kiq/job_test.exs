@@ -6,11 +6,11 @@ defmodule Kiq.JobTest do
   doctest Job
 
   describe "decode/1" do
-    test "all object keys are atomized" do
+    test "all object keys remain stringified" do
       job = Job.decode(~s({"class":"MyWorker","args":{"a":1,"b":2}}))
 
       assert job.class == "MyWorker"
-      assert job.args == %{a: 1, b: 2}
+      assert job.args == %{"a" => 1, "b" => 2}
     end
   end
 
